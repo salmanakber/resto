@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
-import { Session } from 'inspector/promises';
-import { prisma } from "@/lib/prisma";
-import { logoutFromAllDevices } from '@/lib/logoutAll';
+
 
 interface Token {
   role?: string;
@@ -95,7 +93,9 @@ export async function middleware(request: NextRequest) {
     });
     const dbSession = await verify.json();
       if (!dbSession) {
-        await logoutFromAllDevices();
+        await fetch(`${request.nextUrl.origin}/api/admin/sessions/logout-all`, {
+          method: 'POST',
+        })
         return NextResponse.redirect(new URL('/login', request.url));
       }
       else{
