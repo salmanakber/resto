@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE `Location` ADD COLUMN `lat` VARCHAR(191) NOT NULL DEFAULT '0',
+    ADD COLUMN `lng` VARCHAR(191) NOT NULL DEFAULT '0';
+
+-- AlterTable
+ALTER TABLE `MenuItem` ADD COLUMN `order` INTEGER NULL; 

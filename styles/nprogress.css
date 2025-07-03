@@ -1,0 +1,21 @@
+/* Custom nprogress styling */
+#nprogress {
+    pointer-events: none;
+  }
+  
+  #nprogress .bar {
+    background: #dc2626; /* Tailwind red-600 */
+    position: fixed;
+    z-index: 1031;
+    top: 0;
+    left: 0;
+  
+    width: 100%;
+    height: 3px;
+  }
+  
+  /* Optional: Hide the spinner */
+  #nprogress .spinner {
+    display: none;
+  }
+  

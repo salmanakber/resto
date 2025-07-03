@@ -1,0 +1,381 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { LogOut, Mic, MicOff } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+
+// Type definitions
+type OrderStatus = "Preparing" | "Ready" | "Completed";
+
+interface Order {
+  id: number;
+  orderNumber: string;
+  items: string[];
+  status: OrderStatus;
+  time: string;
+  customer: string;
+}
+
+export default function OrderingScreen() {
+  const [orders, setOrders] = useState<Order[]>([
+    {
+      id: 1,
+      orderNumber: "001",
+      items: ["Fresh Sliced Chicken x2", "Seasoned Beef x1"],
+      status: "Preparing",
+      time: "10:30 AM",
+      customer: "John Doe"
+    },
+    {
+      id: 2,
+      orderNumber: "002",
+      items: ["BBQ Pork x3", "Fresh Shrimp x1"],
+      status: "Ready",
+      time: "10:45 AM",
+      customer: "Jane Smith"
+    },
+    {
+      id: 3,
+      orderNumber: "003",
+      items: ["Seasoned Beef Pork x2", "Mixed Mushrooms Beef x1"],
+      status: "Preparing",
+      time: "11:00 AM",
+      customer: "Bob Johnson"
+    },
+    {
+      id: 4,
+      orderNumber: "004",
+      items: ["Fresh Shrimp x2", "Fresh Sliced Chicken x1"],
+      status: "Completed",
+      time: "11:15 AM",
+      customer: "Alice Brown"
+    },
+    {
+      id: 5,
+      orderNumber: "005",
+      items: ["Mixed Mushrooms Beef x2", "BBQ Pork x2"],
+      status: "Preparing",
+      time: "11:30 AM",
+      customer: "Charlie Wilson"
+    }
+  ]);
+
+  const [voiceCommandActive, setVoiceCommandActive] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [transcription, setTranscription] = useState("");
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [currentCommand, setCurrentCommand] = useState<{ orderNumber: string; status: OrderStatus } | null>(null);
+  const [logoutAlertOpen, setLogoutAlertOpen] = useState(false);
+  
+  const recognitionRef = useRef<any>(null);
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // @ts-ignore - SpeechRecognition is not in the TypeScript lib
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      
+      if (SpeechRecognition) {
+        recognitionRef.current = new SpeechRecognition();
+        recognitionRef.current.continuous = true;
+        recognitionRef.current.interimResults = true;
+        recognitionRef.current.lang = 'en-US';
+        
+        recognitionRef.current.onresult = (event: any) => {
+          const transcript = Array.from(event.results)
+            .map((result: any) => result[0])
+            .map((result: any) => result.transcript)
+            .join('');
+          
+          setTranscription(transcript);
+          processVoiceCommand(transcript);
+        };
+        
+        recognitionRef.current.onerror = (event: any) => {
+          console.error('Speech recognition error', event.error);
+          setIsListening(false);
+        };
+        
+        recognitionRef.current.onend = () => {
+          if (isListening) {
+            recognitionRef.current?.start();
+          }
+        };
+      } else {
+        console.error('Speech recognition not supported in this browser');
+      }
+    }
+    
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, [isListening]);
+
+  // Handle toggling voice command
+  const toggleVoiceCommand = () => {
+    const newState = !voiceCommandActive;
+    setVoiceCommandActive(newState);
+    
+    if (newState) {
+      startListening();
+    } else {
+      stopListening();
+    }
+  };
+
+  // Start speech recognition
+  const startListening = () => {
+    setIsListening(true);
+    if (recognitionRef.current) {
+      recognitionRef.current.start();
+    }
+  };
+
+  // Stop speech recognition
+  const stopListening = () => {
+    setIsListening(false);
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+    setTranscription("");
+  };
+
+  // Process voice commands
+  const processVoiceCommand = (transcript: string) => {
+    // Don't process if not actively listening
+    if (!isListening) return;
+    
+    // Look for patterns like "Order 1 ready" or "Order 5 is complete"
+    const orderReadyRegex = /order\s+(\d+)(?:\s+is)?\s+(ready|complete|completed|done|finished)/i;
+    const match = transcript.toLowerCase().match(orderReadyRegex);
+    
+    if (match) {
+      const orderNumber = match[1].padStart(3, '0');
+      let newStatus: OrderStatus = "Ready";
+      
+      // Determine the intended status based on the command
+      if (match[2] === "ready") {
+        newStatus = "Ready";
+      } else if (["complete", "completed", "done", "finished"].includes(match[2])) {
+        newStatus = "Completed";
+      }
+      
+      // Set the current command and open confirmation dialog
+      setCurrentCommand({ orderNumber, status: newStatus });
+      setConfirmDialogOpen(true);
+      
+      // Reset transcription after processing
+      setTranscription("");
+    }
+  };
+
+  // Confirm voice command
+  const confirmVoiceCommand = () => {
+    if (currentCommand) {
+      updateOrderStatus(currentCommand.orderNumber, currentCommand.status);
+      setConfirmDialogOpen(false);
+      setCurrentCommand(null);
+    }
+  };
+
+  // Cancel voice command
+  const cancelVoiceCommand = () => {
+    setConfirmDialogOpen(false);
+    setCurrentCommand(null);
+  };
+
+  // Update order status manually
+  const updateOrderStatus = (orderNumber: string, newStatus: OrderStatus) => {
+    setOrders(prevOrders => 
+      prevOrders.map(order => 
+        order.orderNumber === orderNumber 
+          ? { ...order, status: newStatus } 
+          : order
+      )
+    );
+  };
+
+  // Handle changing order status manually
+  const handleStatusChange = (orderId: number) => {
+    setOrders(prevOrders => 
+      prevOrders.map(order => {
+        if (order.id === orderId) {
+          let newStatus: OrderStatus = "Preparing";
+          
+          if (order.status === "Preparing") newStatus = "Ready";
+          else if (order.status === "Ready") newStatus = "Completed";
+          else if (order.status === "Completed") newStatus = "Preparing"; // Cycle back to preparing
+          
+          return { ...order, status: newStatus };
+        }
+        return order;
+      })
+    );
+  };
+
+  // Get status badge color
+  const getStatusColor = (status: OrderStatus) => {
+    switch (status) {
+      case "Preparing":
+        return "bg-amber-500 hover:bg-amber-600";
+      case "Ready":
+        return "bg-green-500 hover:bg-green-600";
+      case "Completed":
+        return "bg-slate-500 hover:bg-slate-600";
+      default:
+        return "bg-slate-500 hover:bg-slate-600";
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      {/* Header */}
+      <header className="bg-[#e41e3f] text-white shadow-sm sticky top-0 z-10">
+        <div className="max-w-full mx-auto p-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold">Order Management</h1>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-medium">Voice Commands</span>
+                <Switch
+                  checked={voiceCommandActive}
+                  onCheckedChange={toggleVoiceCommand}
+                  className="data-[state=checked]:bg-white data-[state=checked]:text-[#e41e3f]"
+                />
+                {voiceCommandActive ? (
+                  <Mic className="h-5 w-5 text-white animate-pulse" />
+                ) : (
+                  <MicOff className="h-5 w-5 text-white" />
+                )}
+              </div>
+              <Button 
+                variant="outline" 
+                className="bg-white text-[#e41e3f] hover:bg-gray-100 border-white"
+                onClick={() => setLogoutAlertOpen(true)}
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold text-gray-800">Active Orders</h2>
+          {voiceCommandActive && (
+            <p className="text-sm text-gray-500 mt-2">
+              Voice command mode is active. Say "Order [number] ready" or "Order [number] complete" to update status.
+            </p>
+          )}
+          {transcription && (
+            <div className="mt-2 p-2 bg-gray-100 rounded-md border border-gray-300">
+              <p className="text-sm font-medium">Heard: {transcription}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {orders.map((order) => (
+            <Card key={order.id} className="shadow-md hover:shadow-lg transition-shadow">
+              <CardHeader className="bg-gray-50 border-b pb-3">
+                <div className="flex justify-between items-center">
+                  <CardTitle className="text-lg font-bold">
+                    Order #{order.orderNumber}
+                  </CardTitle>
+                  <Badge 
+                    className={`cursor-pointer ${getStatusColor(order.status)}`}
+                    onClick={() => handleStatusChange(order.id)}
+                  >
+                    {order.status}
+                  </Badge>
+                </div>
+                <p className="text-sm text-gray-500">{order.time} - {order.customer}</p>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <ul className="space-y-2">
+                  {order.items.map((item, index) => (
+                    <li key={index} className="text-sm">
+                      • {item}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+              <CardFooter className="flex justify-between pt-2 border-t">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="text-gray-600"
+                >
+                  View Details
+                </Button>
+                <Button 
+                  size="sm" 
+                  className="bg-[#e41e3f] hover:bg-[#c01835] text-white"
+                  onClick={() => {
+                    const statuses: OrderStatus[] = ["Preparing", "Ready", "Completed"];
+                    const currentIndex = statuses.indexOf(order.status);
+                    const nextIndex = (currentIndex + 1) % statuses.length;
+                    updateOrderStatus(order.orderNumber, statuses[nextIndex]);
+                  }}
+                >
+                  Update Status
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      </main>
+
+      {/* Confirmation Dialog for Voice Commands */}
+      <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Status Update</DialogTitle>
+            <DialogDescription>
+              Do you want to mark Order {currentCommand?.orderNumber} as {currentCommand?.status}?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={cancelVoiceCommand}>
+              No, Cancel
+            </Button>
+            <Button 
+              onClick={confirmVoiceCommand}
+              className="bg-[#e41e3f] hover:bg-[#c01835] text-white"
+            >
+              Yes, Update
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Logout Confirmation */}
+      <AlertDialog open={logoutAlertOpen} onOpenChange={setLogoutAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to logout?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Any unsaved changes will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-[#e41e3f] hover:bg-[#c01835]">
+              Logout
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+} 

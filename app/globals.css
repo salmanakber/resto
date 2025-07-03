@@ -1,0 +1,145 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 3.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 3.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 3.9%;
+  --primary: 335 90% 60%;
+  --primary-foreground: 0 85.7% 97.3%;
+  --secondary: 0 0% 96.1%;
+  --secondary-foreground: 0 0% 9%;
+  --muted: 0 0% 96.1%;
+  --muted-foreground: 0 0% 45.1%;
+  --accent: 335 90% 95%;
+  --accent-foreground: 335 90% 40%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 89.8%;
+  --input: 0 0% 89.8%;
+  --ring: 335 90% 60%;
+  --radius: 0.75rem;
+}
+
+.dark {
+  --background: 0 0% 3.9%;
+  --foreground: 0 0% 98%;
+  --card: 0 0% 3.9%;
+  --card-foreground: 0 0% 98%;
+  --popover: 0 0% 3.9%;
+  --popover-foreground: 0 0% 98%;
+  --primary: 335 90% 60%;
+  --primary-foreground: 0 85.7% 97.3%;
+  --secondary: 0 0% 14.9%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 0 0% 14.9%;
+  --muted-foreground: 0 0% 63.9%;
+  --accent: 335 90% 30%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 14.9%;
+  --input: 0 0% 14.9%;
+  --ring: 335 90% 60%;
+}
+
+body {
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: "Poppins", system-ui, sans-serif;
+}
+
+/* Added styles for Koki dashboard */
+.koki-sidebar {
+  background-color: hsl(220, 13%, 18%);
+  color: white;
+}
+
+.koki-chart {
+  background: linear-gradient(180deg, rgba(236, 72, 153, 0.1) 0%, rgba(236, 72, 153, 0) 100%);
+}
+
+.koki-card {
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08), 0 2px 5px -1px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.koki-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px -3px rgba(0, 0, 0, 0.12), 0 3px 8px -2px rgba(0, 0, 0, 0.06);
+}
+
+.koki-stat-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.koki-stat-card::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background-color: hsl(335, 90%, 60%);
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+
+.rating-card {
+  background: linear-gradient(150deg, hsl(335, 90%, 60%), hsl(335, 70%, 40%));
+  color: white;
+}
+
+.menu-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+/* Animation effects */
+.koki-fade-in {
+  animation: fadeIn 0.5s ease forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Print styles for receipts */
+@media print {
+  @page {
+    size: 100mm auto;
+    margin: 0;
+  }
+  
+  body * {
+    visibility: hidden;
+  }
+  
+  #receipt-for-print,
+  #receipt-for-print * {
+    visibility: visible;
+  }
+  
+  #receipt-for-print {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    width: 300px;
+    max-width: 100mm;
+    padding: 0;
+    margin-left: -150px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+}
+
