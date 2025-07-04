@@ -26,6 +26,7 @@ const publicRoutes = [
   '/api/settings',
   '/dashboard',
   '/login',
+  '/api/auth/',
   '/api/feedback',
   '/register',
   '/forgot-password',

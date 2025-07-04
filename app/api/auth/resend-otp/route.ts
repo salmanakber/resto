@@ -2,11 +2,17 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { sendOTPEmail } from "@/lib/email"
-import { sendOTPSMS } from "@/lib/twilio"
+import { sendSMS } from "@/lib/twilio"
 
 const resendOtpSchema = z.object({
   email: z.string().email(),
 })
+
+async function getEmailAndSmsSettings(key: string) {
+  const setting = await prisma.setting.findUnique({ where: { key } });
+  return setting?.value;
+}
+
 
 export async function POST(req: Request) {
   try {
@@ -45,6 +51,7 @@ export async function POST(req: Request) {
       )
     }
 
+    
     // Find the user
     const user = await prisma.user.findUnique({
       where: { email },
@@ -88,9 +95,19 @@ export async function POST(req: Request) {
     if (isEmailEnabled) {
       sendPromises.push(sendOTPEmail(email, otp))
     }
-    
-    if (isPhoneEnabled && user.phoneNumber) {
-      sendPromises.push(sendOTPSMS(user.phoneNumber, otp))
+    const smsSetting = await getEmailAndSmsSettings("OTP_PHONE_ENABLED");
+    if (smsSetting === "true" && user.phoneNumber) {
+      const smsTemplate = await getEmailAndSmsSettings("smsTemplate");
+      const smsTemplateData = JSON.parse(smsTemplate || '{}');
+      const smsBody = smsTemplateData?.login?.body || '';
+       const forwarded = req.headers.get("x-forwarded-for")
+  const ip = forwarded?.split(",")[0] ?? "unknown"
+      await sendSMS({
+        to: user.phoneNumber,
+        body: smsBody
+          .replace("{{otp}}", otp),
+          ip: ip
+      });
     }
     
     // Wait for all OTPs to be sent
