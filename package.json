@@ -8,7 +8,8 @@
     "start": "NODE_ENV=production node server.js",
     "lint": "next lint",
     "prisma:seed": "ts-node prisma/seed.ts",
-    "cleanup:it-access": "ts-node scripts/cleanup-it-access.ts"
+    "cleanup:it-access": "ts-node scripts/cleanup-it-access.ts",
+    "postinstall": "prisma generate"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
