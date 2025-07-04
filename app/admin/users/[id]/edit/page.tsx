@@ -1,6 +1,7 @@
+'use client'
 import { prisma } from '@/lib/prisma'
 import { notFound } from 'next/navigation'
-import UserForm from '../_components/UserForm'
+import {UserForm} from '../../_components/UserForm'
 
 interface EditUserPageProps {
   params: {

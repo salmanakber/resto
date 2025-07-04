@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { TableSkeleton } from '@/components/skeletons/TableSkeleton'
+import { TableSkeleton } from '@/app/components/skeletons/TableSkeleton'
 import { DataTable } from '@/components/ui/data-table'
 import { columns } from './_components/columns'
 import { Button } from '@/components/ui/button'
