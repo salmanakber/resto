@@ -253,7 +253,7 @@ const result = await prisma.$transaction(
     return order;
   },
   {
-    timeout: 15000, // ⏱ Allow up to 15 seconds for this transaction
+    timeout: 15000, // ⏱ Allow up to 15 seconds for this transaction ok
   }
 );
 
