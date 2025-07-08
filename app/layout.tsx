@@ -11,10 +11,11 @@ import { AppContextProvider } from "./context/AppContextProvider";
 import { Suspense } from 'react'
 import Loading from './loading'
 const inter = Inter({ subsets: ['latin'] })
+export const dynamic = 'force-dynamic';
 async function getSettings() {
   try {
     const response = await fetch(`${process.env.NEXTAUTH_URL}/api/settings?key=seo_settings`, {
-      cache: 'no-store'
+      next: { revalidate: 3600 } // cache for 1 hour
     })
     
     if (!response.ok) {
@@ -33,7 +34,7 @@ async function getSettings() {
 }
 async function getFavicon() {
   const response = await fetch(`${process.env.NEXTAUTH_URL}/api/settings?key=brand_assets`, {
-    cache: 'no-store'
+    next: { revalidate: 3600 } // cache for 1 hour
   })
   const data = await response.json()
   return JSON.parse(data.value).favicon

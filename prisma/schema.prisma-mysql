@@ -1,0 +1,793 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                     String           @id @default(uuid())
+  email                  String           @unique
+  password               String
+  firstName              String
+  lastName               String
+  restaurantName         String?
+  status                 String           @default("active") 
+  roleId                 String
+  profileImage           String?
+  emailVerified          Boolean          @default(false)
+  emailVerificationToken String?
+  resetPasswordToken     String?
+  resetPasswordExpires   DateTime?
+  phoneNumber            String?
+  phoneVerified          Boolean          @default(false)
+  otp                    String?
+  cuisine                String?
+  otpExpires             DateTime?
+  otpEnabled             Boolean          @default(false)
+  lastLogin              DateTime?
+  isActive               Boolean          @default(true)
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+  googleId               String?          @unique
+  facebookId             String?          @unique
+  otpTries               Int              @default(0) @map("otpAttempts")
+  restaurantId           String?
+  locationId             String?
+  customerType      String?
+  accounts               Account[]
+  addresses              Address[]
+  employees              Employee[]       @relation("EmployeeRestaurant")
+  employee               Employee?        @relation("EmployeeUser")
+  itAccess               ITAccess[]
+  loginLogs              LoginLog[]
+  MenuCategory           MenuCategory[]
+  menuItems              MenuItem[]
+  reviews                MenuItemReview[]
+  orders                 Order[]
+  paymentMethods         PaymentMethod[]
+  services               Service[]
+  sessions               Session[]
+  role                   Role             @relation(fields: [roleId], references: [id])
+  profile                UserProfile?
+  
+  restaurantLocations    Location[]       @relation("LocationRestaurants")
+  userLocations          Location[]       @relation("LocationUsers")
+  tables                 Table[]
+  assignedKitchenOrders  KitchenOrder[]   @relation("KitchenOrderAssigner")
+  restaurantKitchenOrders KitchenOrder[]  @relation("KitchenOrderRestaurant")
+  staffKitchenOrders      KitchenOrder[] @relation("KitchenOrderStaff")
+  loyaltyPoints          LoyaltyPoint[]
+  stripeCustomerId       String?          @unique
+  complaints            Complaint[]
+  assignedComplaints    Complaint[]    @relation("AssignedComplaints")
+  activityLogs           ActivityLog[]
+  notifications NotificationRecipient[] @relation(name: "UserNotifications")
+  authoredArticles       SupportArticle[] @relation("ArticleAuthor")
+  editedArticles         SupportArticle[] @relation("ArticleEditor")
+  authoredFAQs           FAQ[]           @relation("FAQAuthor")
+  editedFAQs           FAQ[]           @relation("FAQEditor")
+  complaintResponses     ComplaintResponse[]
+
+  @@index([roleId], map: "User_roleId_fkey")
+  @@index([locationId])
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  displayName String
+  access_area String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  users       User[]
+}
+
+model LoginLog {
+  id        String   @id @default(uuid())
+  userId    String
+  ipAddress String
+  userAgent String @db.LongText
+  device    String?
+  location  String? @db.LongText
+  status    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  sessions  Session[] // Optional: inverse relation
+  @@index([userId], map: "LoginLog_userId_fkey")
+}
+
+model Setting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String   @db.Text
+  description String?  @db.Text
+  category    String
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model EmailTemplate {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  subject     String
+  body        String   @db.Text
+  variables   String   @db.Text
+  description String?  @db.Text
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model UserProfile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  gender      String?
+  preferences String?  @db.LongText
+  language    String?  @default("en")
+  timezone    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Address {
+  id            String   @id @default(uuid())
+  userId        String
+  type          String
+  isDefault     Boolean  @default(false)
+  streetAddress String
+  apartment     String?
+  city          String
+  state         String
+  postalCode    String
+  country       String
+  label         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id])
+
+  @@index([userId], map: "Address_userId_fkey")
+}
+
+model Customer {
+  id            String    @id @default(uuid())
+  firstName     String
+  lastName      String
+  email         String?   @unique
+  phoneNumber   String    @unique
+  userId        String   @unique
+  address       String?
+  totalSpent    Decimal   @default(0) @db.Decimal(10, 2)
+  totalOrders   Int       @default(0)
+  lastOrderDate DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  loyaltyPoints Int       @default(0)
+  restaurantId  String?
+  status        String    @default("active")
+  orders        Order[]
+}
+
+model PaymentMethod {
+  id             String   @id @default(uuid())
+  userId         String
+  paymentMethodId String?
+  type           String
+  provider       String
+  isDefault      Boolean  @default(false)
+  cardNumber     String
+  expiryMonth    Int
+  expiryYear     Int
+  cardHolderName String
+  billingAddress String?  @db.LongText
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  orders         Order[]
+  user           User     @relation(fields: [userId], references: [id])
+  stripeCustomerId String? 
+
+  @@index([userId], map: "PaymentMethod_userId_fkey")
+}
+
+model Order {
+  id                String         @id @default(cuid())
+  userId            String?       
+  restaurantId      String
+  dineInCustomer    String?         @db.LongText
+  orderNumber       String         @unique
+  status            String         @default("pending")
+  totalAmount       Decimal        @db.Decimal(10, 2)
+  currency          String         @default("USD")
+  paymentStatus     String         @default("pending")
+  paymentMethodId   String?
+  shippingAddress   String         @db.LongText
+  billingAddress    String         @db.LongText
+  items             Json
+  notes             String?        @db.Text
+  trackingNumber    String?
+  estimatedDelivery DateTime?
+  deliveredAt       DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  paymentMethod     PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
+  user              User?          @relation(fields: [userId], references: [id])
+  tableId           String?
+  table             Table?         @relation(fields: [tableId], references: [id])
+  kitchenOrder      KitchenOrder?
+  paymentDetails    Json?
+  customerDetails   Json?
+  orderType         String?
+  pickupTime        String?
+  discountUsed      Json?    
+  specialInstructions String?
+  otp               String?
+  qrCode            String?      @db.LongText
+  location         Location?     @relation(fields: [locationId], references: [id])
+  locationId       String?
+  customerId       String?
+  Customer         Customer? @relation(fields: [customerId], references: [id])
+  loyaltyPoints     LoyaltyPoint[]
+
+  @@index([paymentMethodId], map: "Order_paymentMethodId_fkey")
+  @@index([userId], map: "Order_userId_fkey")
+  @@index([tableId])
+}
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId], map: "Account_userId_fkey")
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String   @unique
+  loginLogId   String?  // nullable foreign key
+  expires      DateTime
+  lastActiveAt DateTime?
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  loginLog     LoginLog? @relation(fields: [loginLogId], references: [id], onDelete: SetNull)
+
+  @@index([userId], map: "Session_userId_fkey")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model MenuCategory {
+  id          String         @id @default(cuid())
+  name        String
+  description String?
+  image       String?
+  isActive    Boolean        @default(true)
+  order       Int?           @default(0)
+  parentId    String?
+  userId      String
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  parent      MenuCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    MenuCategory[] @relation("CategoryHierarchy")
+  user        User           @relation(fields: [userId], references: [id])
+  items       MenuItem[]
+
+  @@index([parentId])
+  @@index([userId])
+}
+
+model MenuItem {
+  id          String            @id @default(cuid())
+  name        String
+  description String            @db.Text
+  price       Float
+  image       String?
+  tags        String            @db.Text
+  isAvailable Boolean           @default(true)
+  isPopular   Boolean           @default(false)
+  calories    Int?
+  order       Int?
+  prepTime    String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  categoryId  String
+  userId      String
+  category    MenuCategory      @relation(fields: [categoryId], references: [id])
+  user        User              @relation(fields: [userId], references: [id])
+  reviews     MenuItemReview[]
+  services    MenuItemService[]
+  restaurantId String?
+
+  @@index([categoryId])
+  @@index([userId])
+  @@index([restaurantId])
+}
+
+model Service {
+  id          String            @id @default(cuid())
+  name        String
+  description String?
+  price       Float?
+  isActive    Boolean           @default(true)
+  userId      String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  menuItems   MenuItemService[]
+  user        User              @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model MenuItemService {
+  id         String   @id @default(cuid())
+  menuItemId String
+  serviceId  String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  service    Service  @relation(fields: [serviceId], references: [id])
+
+  @@unique([menuItemId, serviceId])
+  @@index([menuItemId])
+  @@index([serviceId])
+}
+
+model MenuItemReview {
+  id         String   @id @default(cuid())
+  rating     Int      @default(5)
+  comment    String? @db.LongText
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  menuItemId String
+  orderId    String?
+  userId     String
+  restaurantId  String?
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@index([menuItemId])
+  @@index([userId])
+}
+
+model ITAccess {
+  id         String   @id @default(uuid())
+  userId     String
+  expiryDate DateTime
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+
+enum leaveType {
+  SickLeave
+  AnnualLeave
+  UnpaidLeave
+  Other
+}
+
+model Employee {
+  id            String       @id @default(uuid())
+  userId        String?      @unique
+  restaurantId  String
+  firstName     String
+  lastName      String
+  email         String       @unique
+  phone         String?
+  role          String
+  joiningDate   DateTime
+  position      String?
+  department    String?
+  typeLeave     leaveType?
+  tempStatus    String?
+  note          String?
+  salary        Decimal      @db.Decimal(10, 2)
+  hireDate      DateTime?
+  status        String       @default("active")
+  createdAt     DateTime     @default(now())
+  leaveStartDate DateTime?
+  leaveEndDate DateTime?
+  updatedAt     DateTime     @updatedAt
+  user          User?        @relation("EmployeeUser", fields: [userId], references: [id])
+  restaurant    User         @relation("EmployeeRestaurant", fields: [restaurantId], references: [id])
+  payrolls      Payroll[]
+  overtimes     Overtime[]
+  tips          Tip[]
+  deductions    Deduction[]
+  attendance    Attendance[]
+
+  @@index([restaurantId])
+  @@index([userId])
+}
+
+model Payroll {
+  id            String       @id @default(uuid())
+  employeeId    String
+  month         Int
+  year          Int
+  baseSalary    Decimal      @db.Decimal(10, 2)
+  overtimePay   Decimal      @db.Decimal(10, 2)
+  tipsAmount    Decimal      @db.Decimal(10, 2)
+  deductions    Decimal      @db.Decimal(10, 2)
+  netSalary     Decimal      @db.Decimal(10, 2)
+  status        String       @default("pending")
+  paymentDate   DateTime?
+  payslipUrl    String?
+  notes         String?      @db.Text
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  employee      Employee     @relation(fields: [employeeId], references: [id])
+  overtimeRecords Overtime[]
+  tipRecords    Tip[]
+  deductionRecords Deduction[]
+
+  @@index([employeeId])
+  @@index([month, year])
+  @@unique([employeeId, month, year])
+}
+
+model Overtime {
+  id         String   @id @default(uuid())
+  employeeId String
+  payrollId  String?
+  date       DateTime
+  month      Int
+  year       Int
+  hours      Decimal  @db.Decimal(10, 2)
+  rate       Decimal  @db.Decimal(10, 2)
+  amount     Decimal  @db.Decimal(10, 2)
+  notes      String?  @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  payroll    Payroll? @relation(fields: [payrollId], references: [id])
+
+  @@index([employeeId])
+  @@index([payrollId])
+  @@index([month, year])
+}
+
+model Tip {
+  id         String   @id @default(uuid())
+  employeeId String
+  payrollId  String?
+  date       DateTime
+  month      Int
+  year       Int
+  amount     Decimal  @db.Decimal(10, 2)
+  type       String   // individual or pooled
+  notes      String?  @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  payroll    Payroll? @relation(fields: [payrollId], references: [id])
+
+  @@index([employeeId])
+  @@index([payrollId])
+  @@index([month, year])
+}
+
+model Deduction {
+  id          String   @id @default(uuid())
+  employeeId  String
+  payrollId   String?
+  type        String
+  amount      Decimal  @db.Decimal(10, 2)
+  description String?  @db.Text
+  startDate   DateTime
+  endDate     DateTime?
+  month      Int
+  year       Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  payroll     Payroll? @relation(fields: [payrollId], references: [id])
+
+  @@index([employeeId])
+  @@index([payrollId])
+}
+
+model Attendance {
+  id         String   @id @default(uuid())
+  employeeId String
+  date       DateTime
+  month      Int
+  year       Int
+  checkIn    DateTime?
+  checkOut   DateTime?
+  status     String   // present, absent, late, half-day
+  notes      String?  @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  employee   Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId])
+  @@index([month, year])
+}
+
+model Location {
+  id          String    @id @default(cuid())
+  name        String
+  timeZone    String
+  address     String
+  orders      Order[]
+  lat         String   @default("0")
+  lng         String   @default("0")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String?
+  restaurants User[]     @relation("LocationRestaurants")
+  users       User[]     @relation("LocationUsers")
+
+  @@index([userId])
+}
+
+model Table {
+  id          String   @id @default(uuid())
+  number      Int     
+  status      String   @default("available") // available, occupied, reserved
+  capacity    Int      @default(4)
+  qrCode      String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  restaurantId String
+  restaurant   User     @relation(fields: [restaurantId], references: [id])
+  orders       Order[]
+
+  @@index([restaurantId])
+}
+
+model KitchenOrder {
+  id            String   @id @default(cuid())
+  orderId       String   @unique
+  restaurantId  String
+  staffId       String?
+  assignedBy    String
+  assignedAt    DateTime @default(now())
+  status        String   @default("pending")
+  startedAt     DateTime?
+  completedAt   DateTime?
+  readyAt       DateTime?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  order         Order    @relation(fields: [orderId], references: [id])
+  restaurant    User     @relation("KitchenOrderRestaurant", fields: [restaurantId], references: [id])
+  staff         User?    @relation("KitchenOrderStaff", fields: [staffId], references: [id])
+  assigner      User     @relation("KitchenOrderAssigner", fields: [assignedBy], references: [id])
+
+  @@index([restaurantId])
+  @@index([assignedBy])
+  @@index([staffId])
+}
+
+model LoyaltyPoint {
+  id        String   @id @default(cuid())
+  points    Int
+  type      String   // "earn" or "redeem"
+  expiresAt DateTime?
+  userId    String
+  orderId   String?
+  user      User     @relation(fields: [userId], references: [id])
+  order     Order?   @relation(fields: [orderId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([orderId])
+}
+
+model NotificationSettings {
+  id                    String   @id @default("1")
+  emailNotifications    Boolean  @default(true)
+  orderNotifications    Boolean  @default(true)
+  marketingNotifications Boolean  @default(false)
+  systemNotifications   Boolean  @default(true)
+  pushNotifications     Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model SecuritySettings {
+  id              String   @id @default("1")
+  twoFactorAuth   Boolean  @default(false)
+  sessionTimeout  String   @default("30")
+  passwordExpiry  String   @default("90")
+  maxLoginAttempts String  @default("5")
+  ipWhitelist     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Notification {
+  id            String     @id @default(cuid())
+  type          String
+  title         String
+  message       String     @db.Text
+  data          Json?
+  priority      String     @default("normal")
+  createdAt     DateTime   @default(now())
+  expiresAt     DateTime   @default(dbgenerated("DATE_ADD(NOW(), INTERVAL 30 DAY)"))
+  restaurantId  String?    // just a string field for filtering
+
+  recipients    NotificationRecipient[]
+
+  @@index([type])
+  @@index([createdAt])
+  @@index([restaurantId])
+}
+
+model NotificationRecipient {
+  id             String     @id @default(cuid())
+  notificationId String
+  userId         String
+  isRead         Boolean    @default(false)
+  readAt         DateTime?
+
+  notification   Notification @relation(fields: [notificationId], references: [id])
+  user User @relation(fields: [userId], references: [id], name: "UserNotifications")
+
+
+  @@unique([notificationId, userId])
+}
+
+model Complaint {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   // order, service, food, general, technical, billing, delivery
+  subject     String
+  description String   @db.Text
+  status      String   @default("pending") // pending, in_progress, resolved, closed
+  priority    String   @default("normal") // high, normal, low
+  assignedTo  String?
+  resolution  String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  orderId     String?  // Reference to the related order if applicable
+  attachments String?  @db.Text // JSON array of attachment URLs
+  category    String   // main category for better organization
+  subCategory String?  // sub-category for more specific classification
+  user        User     @relation(fields: [userId], references: [id])
+  assignedUser User?   @relation("AssignedComplaints", fields: [assignedTo], references: [id])
+  responses   ComplaintResponse[]
+  tags        String?  @db.Text // JSON array of tags for better searchability
+  restaurantId String?
+
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@index([category])
+  @@index([createdAt])
+}
+
+model ComplaintResponse {
+  id          String   @id @default(cuid())
+  complaintId String
+  userId      String
+  message     String   @db.Text
+  isInternal  Boolean  @default(false) // Whether this is an internal note or customer-visible response
+  attachments String?  @db.Text // JSON array of attachment URLs
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  complaint   Complaint @relation(fields: [complaintId], references: [id])
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([complaintId])
+  @@index([userId])
+}
+
+model SupportArticle {
+  id          String   @id @default(cuid())
+  title       String
+  content     String   @db.Text
+  category    String
+  subCategory String?
+  tags        String?  @db.Text // JSON array of tags
+  isPublished Boolean  @default(true)
+  viewCount   Int      @default(0)
+  helpfulCount Int     @default(0)
+  notHelpfulCount Int  @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String
+  updatedBy   String
+  author      User     @relation("ArticleAuthor", fields: [createdBy], references: [id])
+  editor      User     @relation("ArticleEditor", fields: [updatedBy], references: [id])
+    views           ArticleView[]
+  feedbacks       ArticleFeedback[]
+
+  @@index([category])
+  @@index([isPublished])
+  @@index([createdAt])
+}
+
+model FAQ {
+  id          String   @id @default(cuid())
+  question    String
+  answer      String   @db.Text
+  category    String
+  subCategory String?
+  tags        String?  @db.Text // JSON array of tags
+  isPublished Boolean  @default(true)
+  helpfulCount Int     @default(0)
+  notHelpfulCount Int  @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String
+  updatedBy   String
+  author      User     @relation("FAQAuthor", fields: [createdBy], references: [id])
+  editor      User     @relation("FAQEditor", fields: [updatedBy], references: [id])
+
+  @@index([category])
+  @@index([isPublished])
+}
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  userId     String
+  action     String
+  entityType String
+  entityId   String
+  details    String
+  ipAddress  String
+  userAgent  String
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+}
+
+model ArticleView {
+  id         String   @id @default(cuid())
+  articleId  String
+  ipAddress  String
+  createdAt  DateTime @default(now())
+
+  article    SupportArticle @relation(fields: [articleId], references: [id])
+
+  @@unique([articleId, ipAddress]) // Prevent duplicate views from same IP
+}
+
+model ArticleFeedback {
+  id         String   @id @default(cuid())
+  articleId  String
+  userId     String?   // null for guests
+  ipAddress  String
+  feedback   String    // 'helpful' or 'not_helpful'
+  createdAt  DateTime  @default(now())
+
+  article    SupportArticle @relation(fields: [articleId], references: [id])
+
+  @@unique([articleId, ipAddress])
+}
