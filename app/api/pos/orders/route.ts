@@ -145,97 +145,118 @@ const qrCodeData = JSON.stringify({
 });
 const qrCodeUrl = await QRCode.toDataURL(qrCodeData);
 // Final order creation
-const result = await prisma.$transaction(async (tx: PrismaClient) => {
-const order = await tx.order.create({
-  data: {
-    customerId: customer.id,
-    userId: customer.userId,
-    totalAmount: total,
-    locationId,
-    orderNumber: `${timeString}`,
-    shippingAddress: '',
-    billingAddress: '',
-    tableId: type === 'dine-in' ? tableId : null,
-    currency: defaultCurrency,
-    items: JSON.stringify(items),
-    restaurantId: getsessionUser.restaurantId,
-    orderType: type,
-    paymentMethodId: null,
-    paymentDetails: null,
-    customerDetails: (type === 'pickup' ? JSON.stringify({email: customer.email, phone: customer.phoneNumber, name: customer.firstName + ' ' + customer.lastName}) : null),
-    dineInCustomer: (type === 'dine-in' ? JSON.stringify({email: customer.email, phone: customer.phoneNumber, name: customer.firstName + ' ' + customer.lastName}) : null),
-    pickupTime: (type === 'pickup' ? String(new Date()) : null),
-    specialInstructions: null,
-    status: "preparing",
-    paymentStatus: type === 'dine-in' ? "unpaid" : "cash in hand",
-    otp,
-    discountUsed: (discountPercentage),
-    qrCode: qrCodeUrl,
-    loyaltyPoints: pointsEarned > 0 ? {
-      create: {
-        points: pointsEarned,
-        type: "earn",
-        user: {
-          connect: { id: customerId }
-        },
-        expiresAt: new Date(Date.now() + (loyaltyConfig?.pointExpiryDays || 365) * 86400000)
-      }
-    } : undefined
-  },
-  include: {
-    Customer: true,
-
-  }
-});
-
-
-
-if (type === 'dine-in') {
-  await tx.table.update({
-    where: { id: tableId },
-    data: { status: 'occupied' },
-  });
-}
-
-const kitchenOrder = await tx.kitchenOrder.create({
-  data: {
-    orderId: order.id,
-    restaurantId: getsessionUser.restaurantId as string,
-    status: 'pending',
-    assignedBy: getsessionUser.id
-  },
-  include: {
-    order: {
+const result = await prisma.$transaction(
+  async (tx: PrismaClient) => {
+    const order = await tx.order.create({
+      data: {
+        customerId: customer.id,
+        userId: customer.userId,
+        totalAmount: total,
+        locationId,
+        orderNumber: `${timeString}`,
+        shippingAddress: '',
+        billingAddress: '',
+        tableId: type === 'dine-in' ? tableId : null,
+        currency: defaultCurrency,
+        items: JSON.stringify(items),
+        restaurantId: getsessionUser.restaurantId,
+        orderType: type,
+        paymentMethodId: null,
+        paymentDetails: null,
+        customerDetails:
+          type === 'pickup'
+            ? JSON.stringify({
+                email: customer.email,
+                phone: customer.phoneNumber,
+                name: customer.firstName + ' ' + customer.lastName,
+              })
+            : null,
+        dineInCustomer:
+          type === 'dine-in'
+            ? JSON.stringify({
+                email: customer.email,
+                phone: customer.phoneNumber,
+                name: customer.firstName + ' ' + customer.lastName,
+              })
+            : null,
+        pickupTime: type === 'pickup' ? String(new Date()) : null,
+        specialInstructions: null,
+        status: 'preparing',
+        paymentStatus: type === 'dine-in' ? 'unpaid' : 'cash in hand',
+        otp,
+        discountUsed: discountPercentage,
+        qrCode: qrCodeUrl,
+        loyaltyPoints:
+          pointsEarned > 0
+            ? {
+                create: {
+                  points: pointsEarned,
+                  type: 'earn',
+                  user: {
+                    connect: { id: customerId },
+                  },
+                  expiresAt: new Date(
+                    Date.now() +
+                      (loyaltyConfig?.pointExpiryDays || 365) * 86400000
+                  ),
+                },
+              }
+            : undefined,
+      },
       include: {
-        table: true
-      }
-    },
-    assigner: {
-      select: {
-        firstName: true,
-        lastName: true
-      }
+        Customer: true,
+      },
+    });
+
+    if (type === 'dine-in') {
+      await tx.table.update({
+        where: { id: tableId },
+        data: { status: 'occupied' },
+      });
     }
+
+    const kitchenOrder = await tx.kitchenOrder.create({
+      data: {
+        orderId: order.id,
+        restaurantId: getsessionUser.restaurantId as string,
+        status: 'pending',
+        assignedBy: getsessionUser.id,
+      },
+      include: {
+        order: {
+          include: {
+            table: true,
+          },
+        },
+        assigner: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    const updateCustomer = await tx.customer.update({
+      where: { id: customer.id },
+      data: {
+        totalSpent: {
+          increment: total,
+        },
+        totalOrders: {
+          increment: 1,
+        },
+        lastOrderDate: new Date(),
+      },
+    });
+
+    return order;
+  },
+  {
+    timeout: 15000, // ⏱ Allow up to 15 seconds for this transaction
   }
-});
+);
 
-const updateCustomer = await tx.customer.update({
-  where: { id: customer.id },
-  data: {
-    totalSpent: {
-      increment: total
-    },
-    totalOrders: {
-      increment: 1
-    },
-    lastOrderDate: new Date()
-  }
-});
-
-
-return order;
-
-});
 
 
 

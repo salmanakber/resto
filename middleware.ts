@@ -85,7 +85,7 @@ export async function middleware(request: NextRequest) {
     // If user is not logged in and trying to access a protected route, redirect to login
     if (!token ) {
       const loginUrl = new URL('/login', request.url)
-      loginUrl.searchParams.set('callbackUrl', path)
+      // loginUrl.searchParams.set('callbackUrl', path)
       return NextResponse.redirect(loginUrl)
     }
 
