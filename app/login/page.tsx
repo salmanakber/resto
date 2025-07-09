@@ -99,13 +99,13 @@ export default function LoginPage() {
       }
       setIsLoading(true)
       if(tempTokenData.token.role.name === 'Admin') {
-        router.push((callbackUrl ? callbackUrl : "admin"))
+        window.location.href = (callbackUrl ? callbackUrl : "admin")
       } else if(tempTokenData.token.role.name === 'Restaurant') {
-        router.push((callbackUrl ? callbackUrl : "restaurant/dashboard"))
+        window.location.href = (callbackUrl ? callbackUrl : "restaurant/dashboard")
       } else {
-        router.push((callbackUrl ? callbackUrl : "account"))
+        window.location.href = (callbackUrl ? callbackUrl : "account")
       }
-      router.push((callbackUrl ? callbackUrl : "account"))
+      window.location.href = (callbackUrl ? callbackUrl : "account")
     } catch (error) {
       if(process.env.NODE_ENV === "development") {
         console.error("Login error:", error)
